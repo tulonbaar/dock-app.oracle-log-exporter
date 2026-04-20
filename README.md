@@ -48,6 +48,8 @@ cp .env.example .env
 - `EXPORT_POLL_INTERVAL_SECONDS` - polling interval in seconds (for example, 300 = 5 minutes)
 - `EXPORT_FETCH_BATCH_SIZE` - maximum number of rows per cycle
 - `EXPORT_INITIAL_LOOKBACK_MINUTES` - how many minutes back to start on first run
+- `DOCKER_LOG_MAX_SIZE` - max size of a single container log file before rotation (for example, `10m`)
+- `DOCKER_LOG_MAX_FILE` - number of rotated log files to keep (for example, `5`)
 
 ## Run
 

@@ -9,4 +9,9 @@ services:
     volumes:
       - ./output:/app/output
       - ./state:/app/state
+    logging:
+      driver: json-file
+      options:
+        max-size: ${DOCKER_LOG_MAX_SIZE:-10m}
+        max-file: ${DOCKER_LOG_MAX_FILE:-5}
     restart: unless-stopped
