@@ -1,61 +1,61 @@
 # dock-app.oracle-log-exporter
 
-Log Exporter dla Oracle 11g, uruchamiany w Dockerze, napisany w .NET 10.
+Log exporter for Oracle 11g, running in Docker, written in .NET 10.
 
-Rozwiązanie:
-- łączy się do Oracle wskazanym użytkownikiem,
-- odczytuje metadane tabeli i dynamicznie eksportuje dostępne kolumny,
-- pozwala ignorować wybrane kolumny,
-- działa przyrostowo (bez duplikowania rekordów),
-- zapisuje dane do pliku JSONL (jedna linia = jeden rekord JSON).
+The solution:
+- connects to Oracle using the configured user,
+- reads table metadata and dynamically exports available columns,
+- allows selected columns to be ignored,
+- works incrementally (without duplicating records),
+- writes data to a JSONL file (one line = one JSON record).
 
-## Jak działa brak duplikatów
+## How deduplication works
 
-Eksporter używa watermarka zapisanego w pliku stanu:
-- `LastTimestampUtc` (ostatnia wartość kolumny czasowej),
-- `LastRowId` (tie-breaker dla rekordów z tym samym timestampem).
+The exporter uses a watermark stored in the state file:
+- `LastTimestampUtc` (the latest value of the timestamp column),
+- `LastRowId` (a tie-breaker for rows with the same timestamp).
 
-Zapytanie pobiera tylko rekordy:
+The query fetches only rows where:
 - `timestamp > LastTimestampUtc`
-- lub `timestamp = LastTimestampUtc AND ROWID > LastRowId`
+- or `timestamp = LastTimestampUtc AND ROWID > LastRowId`
 
-Dzięki temu nawet przy wielu rekordach z tym samym znacznikiem czasu nie ma ponownego eksportu tych samych danych.
+This guarantees no re-export of already processed rows, even when many rows share the same timestamp.
 
-## Wymagania
+## Requirements
 
 - Docker + Docker Compose
-- Dostęp sieciowy z kontenera do Oracle 11g
-- Tabela z kolumną czasową wskazaną w `EXPORT_TIMESTAMP_COLUMN`
+- Network access from the container to Oracle 11g
+- A table with a timestamp column specified in `EXPORT_TIMESTAMP_COLUMN`
 
-## Konfiguracja
+## Configuration
 
-1. Skopiuj plik środowiskowy:
+1. Copy the environment template:
 
 ```bash
 cp .env.example .env
 ```
 
-2. Uzupełnij `.env`:
+2. Fill in `.env`:
 
 - `ORACLE_HOST` - host Oracle
-- `ORACLE_PORT` - port (domyślnie 1521)
-- `ORACLE_SERVICE_NAME` - service name bazy
-- `ORACLE_USER` / `ORACLE_PASSWORD` - użytkownik i hasło
-- `EXPORT_TABLE` - `TABLE` albo `OWNER.TABLE`
-- `EXPORT_TIMESTAMP_COLUMN` - kolumna czasowa używana do incremental fetch
-- `EXPORT_IGNORED_COLUMNS` - lista CSV kolumn pomijanych
-- `EXPORT_ADDITIONAL_WHERE` - opcjonalny dodatkowy filtr SQL
-- `EXPORT_POLL_INTERVAL_SECONDS` - co ile sekund odpytywać bazę (np. 300 = 5 minut)
-- `EXPORT_FETCH_BATCH_SIZE` - maksymalna liczba rekordów na cykl
-- `EXPORT_INITIAL_LOOKBACK_MINUTES` - ile minut wstecz przy pierwszym uruchomieniu
+- `ORACLE_PORT` - port (default: 1521)
+- `ORACLE_SERVICE_NAME` - database service name
+- `ORACLE_USER` / `ORACLE_PASSWORD` - user and password
+- `EXPORT_TABLE` - `TABLE` or `OWNER.TABLE`
+- `EXPORT_TIMESTAMP_COLUMN` - timestamp column used for incremental fetch
+- `EXPORT_IGNORED_COLUMNS` - CSV list of ignored columns
+- `EXPORT_ADDITIONAL_WHERE` - optional additional SQL filter
+- `EXPORT_POLL_INTERVAL_SECONDS` - polling interval in seconds (for example, 300 = 5 minutes)
+- `EXPORT_FETCH_BATCH_SIZE` - maximum number of rows per cycle
+- `EXPORT_INITIAL_LOOKBACK_MINUTES` - how many minutes back to start on first run
 
-## Uruchomienie
+## Run
 
 ```bash
 docker compose up -d --build
 ```
 
-Logi:
+Logs:
 
 ```bash
 docker compose logs -f oracle-log-exporter
@@ -67,21 +67,21 @@ Stop:
 docker compose down
 ```
 
-## Wyniki eksportu
+## Export outputs
 
-- Dane: `./output/oracle-log-YYYYMMDD.jsonl`
-- Stan watermarka: `./state/export-state.json`
+- Data: `./output/oracle-log-YYYYMMDD.jsonl`
+- Watermark state: `./state/export-state.json`
 
-## Struktura projektu
+## Project structure
 
-- `src/OracleLogExporter/Program.cs` - główna logika eksportera
-- `src/OracleLogExporter/OracleLogExporter.csproj` - projekt .NET 10
-- `Dockerfile` - obraz kontenera
-- `docker-compose.yml` - uruchomienie usługi
-- `.env.example` - szablon konfiguracji
+- `src/OracleLogExporter/Program.cs` - main exporter logic
+- `src/OracleLogExporter/OracleLogExporter.csproj` - .NET 10 project
+- `Dockerfile` - container image
+- `docker-compose.yml` - service runtime definition
+- `.env.example` - configuration template
 
-## Uwagi praktyczne
+## Practical notes
 
-- Użytkownik Oracle musi mieć uprawnienia do odczytu tabeli i metadanych (`ALL_TAB_COLUMNS`).
-- Dla bardzo wysokiego wolumenu danych warto zwiększyć `EXPORT_FETCH_BATCH_SIZE` oraz skrócić interwał pollingu.
-- `EXPORT_ADDITIONAL_WHERE` jest wstrzykiwany do zapytania jako fragment SQL - używaj wyłącznie zaufanej konfiguracji administracyjnej.
+- The Oracle user must have permissions to read the table and metadata (`ALL_TAB_COLUMNS`).
+- For very high data volume, consider increasing `EXPORT_FETCH_BATCH_SIZE` and reducing the polling interval.
+- `EXPORT_ADDITIONAL_WHERE` is injected into the query as a raw SQL fragment. Use only trusted administrative configuration.
