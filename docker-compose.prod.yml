@@ -1,0 +1,10 @@
+services:
+  oracle-log-exporter:
+    image: ghcr.io/tulonbaar/dock-app.oracle-log-exporter:${GHCR_TAG-latest}
+    container_name: oracle-log-exporter
+    env_file:
+      - .env
+    volumes:
+      - ./output:/app/output
+      - ./state:/app/state
+    restart: unless-stopped
