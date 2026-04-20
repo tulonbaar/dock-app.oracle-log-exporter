@@ -3,7 +3,7 @@
 ```mermaid
 flowchart TD
     subgraph Oracle["Oracle Database"]
-        TABLE["Table\nHARTWEB.NSZ_LAXIMO_HIST\n(timestamp column: DATA)"]
+        TABLE["Table\SCHEMA.TABLE\n(timestamp column: DATA)"]
     end
 
     subgraph Container["Docker Container – OracleLogExporter (.NET 10)"]
@@ -15,7 +15,7 @@ flowchart TD
     end
 
     subgraph Volume["Shared Docker Volume"]
-        JSONL["vin-search-log-YYYYMMDD.jsonl\n(JSONL – one record per line)"]
+        JSONL["name-log-YYYYMMDD.jsonl\n(JSONL – one record per line)"]
         STATEFILE["state/export-state.json"]
     end
 
