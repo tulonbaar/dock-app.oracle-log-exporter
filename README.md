@@ -11,21 +11,30 @@ The solution:
 
 ## How deduplication works
 
-The exporter uses a watermark stored in the state file:
+The exporter supports two incremental modes.
+
+If a compatible `DATE`/`TIMESTAMP` column is configured or auto-detected, the exporter uses a watermark stored in the state file:
 - `LastTimestampUtc` (the latest value of the timestamp column),
-- `LastRowId` (a tie-breaker for rows with the same timestamp).
+- fingerprints for rows already exported at the current timestamp boundary.
 
 The query fetches only rows where:
-- `timestamp > LastTimestampUtc`
-- or `timestamp = LastTimestampUtc AND ROWID > LastRowId`
+- `timestamp >= LastTimestampUtc`
+- and skips rows whose fingerprint has already been exported for `LastTimestampUtc`
 
-This guarantees no re-export of already processed rows, even when many rows share the same timestamp.
+This avoids re-exporting rows already processed at the same timestamp boundary without relying on Oracle `ROWID`, so it also works for views where `ROWID` is unavailable.
+
+If there is no compatible time column, the exporter falls back to latest-batch mode and fetches up to `EXPORT_FETCH_BATCH_SIZE` rows on every polling cycle.
+
+- When `ROWID` is available, it reads the physically latest rows (`ORDER BY ROWID DESC`).
+- For sources where `ROWID` is not selectable (for example some views), it still fetches up to `EXPORT_FETCH_BATCH_SIZE` rows, but without stable ordering guarantees.
+
+In both cases, every exported record gets `_extracted_at_utc` set by the application.
 
 ## Requirements
 
 - Docker + Docker Compose
 - Network access from the container to Oracle 11g
-- A table with a timestamp column specified in `EXPORT_TIMESTAMP_COLUMN`
+- A readable Oracle table; a timestamp column is optional
 
 ## Configuration
 
@@ -42,7 +51,7 @@ cp .env.example .env
 - `ORACLE_SERVICE_NAME` - database service name
 - `ORACLE_USER` / `ORACLE_PASSWORD` - user and password
 - `EXPORT_TABLE` - `TABLE` or `OWNER.TABLE`
-- `EXPORT_TIMESTAMP_COLUMN` - timestamp column used for incremental fetch
+- `EXPORT_TIMESTAMP_COLUMN` - optional timestamp column used for incremental fetch; if empty, the exporter auto-detects the first compatible `DATE`/`TIMESTAMP` column and falls back to latest-batch mode if none exists
 - `EXPORT_IGNORED_COLUMNS` - CSV list of ignored columns
 - `EXPORT_ADDITIONAL_WHERE` - optional additional SQL filter
 - `EXPORT_POLL_INTERVAL_SECONDS` - polling interval in seconds (for example, 300 = 5 minutes)
@@ -87,3 +96,4 @@ docker compose down
 - The Oracle user must have permissions to read the table and metadata (`ALL_TAB_COLUMNS`).
 - For very high data volume, consider increasing `EXPORT_FETCH_BATCH_SIZE` and reducing the polling interval.
 - `EXPORT_ADDITIONAL_WHERE` is injected into the query as a raw SQL fragment. Use only trusted administrative configuration.
+- Latest-batch fallback mode (without timestamp) intentionally re-reads rows every cycle; it is designed for “always export something” behavior, not strict deduplication.

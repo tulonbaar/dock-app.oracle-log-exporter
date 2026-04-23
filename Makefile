@@ -1,7 +1,7 @@
 .PHONY: help build up down logs shell migrate makemigrations createsuperuser collectstatic build-prod up-prod down-prod ghcr-build ghcr-push ghcr-buildx-setup ghcr-buildx-push up-prod-ghcr reset-prod-local
 
 GHCR_IMAGE ?= ghcr.io/tulonbaar/dock-app.oracle-log-exporter
-GHCR_TAG ?= 1.0.0
+GHCR_TAG ?= 1.1.0
 GHCR_PLATFORMS ?= linux/amd64,linux/arm64
 GHCR_BUILDER ?= tulon-multiarch
 
